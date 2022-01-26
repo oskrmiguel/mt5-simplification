@@ -6,15 +6,12 @@ import math
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-#from transformers import MBartTokenizer, MBartForConditionalGeneration, PreTrainedModel
-from transformers import AutoTokenizer,MT5ForConditionalGeneration,PreTrainedModel
+from transformers import AutoTokenizer,AutoModelForSeq2SeqLM,PreTrainedModel
 from transformers import (
     AdamW,
     get_linear_schedule_with_warmup
 )
 import logging
-#from seq2seq_trainer import Seq2SeqTrainer
-#from seq2seq_training_args import Seq2SeqTrainingArguments
 
 from transformers.models.bart.modeling_bart import shift_tokens_right
 from SARI import SARIsent
@@ -82,20 +79,20 @@ def convert_to_features(example_batch):
                                                    return_tensors='pt')
     labels = target_encodings['input_ids']
     #decoder_input_ids = shift_tokens_right(labels, model.config.pad_token_id)
-    decoder_input_ids =labels
+    #decoder_input_ids =labels
     #labels[labels[:, :] == model.config.pad_token_id] = -100
 
     encodings = {
         'input_ids': input_encodings['input_ids'].to(device),
         'attention_mask': input_encodings['attention_mask'].to(device),
-        'decoder_input_ids': decoder_input_ids.to(device),
+        #'decoder_input_ids': decoder_input_ids.to(device),
         'labels': labels.to(device)
     }
 
     return encodings
 
 
-# because tokenizer.batch_decode fails ...
+
 def decode_ids(ids, tokenizer):
     output = tokenizer.convert_ids_to_tokens(ids)
     assert len(output) > 2, 'Output too short:{}'.format(output)
@@ -185,7 +182,7 @@ def eval_and_maybe_save(model, tokenizer, eval_data, optimizer, scheduler, args,
 
 def train(model, tokenizer, training_data, eval_data, args):
     '''
-    model: BART model
+    model: mt5 model
     training_data: a Dataset with training data
     eval_data: a Dataset with evaluation data
     arg: arguments. Must have (at least):
@@ -297,7 +294,7 @@ parser.add_argument('--predict', action='store_true',
                     help='Predict. Requires --load_model and --test_file.')
 parser.add_argument('--output_dir', type=str, default='',
                     help='Directory to store the best model.')
-parser.add_argument('--model_name', type=str,default='google/mt5-large',
+parser.add_argument('--model_name', type=str,default='josmunpen/mt5-small-spanish-summarization',
                     help='Name of BART model.')
 parser.add_argument('--load_model', type=str, default='',
                     help='Model to load.')
@@ -393,9 +390,8 @@ logger.info(args)
 #     self.state = TrainerState.load_from_json(os.path.join(model_path, "trainer_state.json"))
 
 model_name_or_path = args.load_model if args.load_model else args.model_name
-#tokenizer = MBartTokenizer.from_pretrained(model_name_or_path)
 tokenizer = AutoTokenizer.from_pretrained(model_name_or_path)
-model = MT5ForConditionalGeneration.from_pretrained(model_name_or_path)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_name_or_path)
 model.to(device)
 
 training_args = {
